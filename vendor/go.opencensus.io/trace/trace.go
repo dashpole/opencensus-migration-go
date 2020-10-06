@@ -26,6 +26,8 @@ import (
 
 	"go.opencensus.io/internal"
 	"go.opencensus.io/trace/tracestate"
+
+	oteltrace "go.opentelemetry.io/otel/api/trace"
 )
 
 // Span represents a span of a trace.  It has an associated SpanContext, and
@@ -106,17 +108,51 @@ type SpanContext struct {
 	Tracestate   *tracestate.Tracestate
 }
 
-type contextKey struct{}
-
 // FromContext returns the Span stored in a context, or nil if there isn't one.
 func FromContext(ctx context.Context) *Span {
-	s, _ := ctx.Value(contextKey{}).(*Span)
-	return s
+	otelSpan := oteltrace.SpanFromContext(ctx)
+	var otelSc oteltrace.SpanContext
+	if otelSpan == nil {
+		otelSc = oteltrace.RemoteSpanContextFromContext(ctx)
+		if otelSc == oteltrace.EmptySpanContext() {
+			return nil
+		}
+	} else {
+		otelSc = otelSpan.SpanContext()
+	}
+
+	span := &Span{
+		spanContext: SpanContext{
+			TraceID: TraceID(otelSc.TraceID),
+			SpanID:  SpanID(otelSc.SpanID),
+		},
+	}
+	span.spanContext.setIsSampled(otelSc.IsSampled())
+
+	// // perform other setup steps
+	// cfg := config.Load().(*Config)
+	// span.lruAttributes = newLruMap(cfg.MaxAttributesPerSpan)
+	// span.annotations = newEvictedQueue(cfg.MaxAnnotationEventsPerSpan)
+	// span.messageEvents = newEvictedQueue(cfg.MaxMessageEventsPerSpan)
+	// span.links = newEvictedQueue(cfg.MaxLinksPerSpan)
+
+	return span
 }
 
 // NewContext returns a new context with the given Span attached.
 func NewContext(parent context.Context, s *Span) context.Context {
-	return context.WithValue(parent, contextKey{}, s)
+	var traceFlags byte
+	if s.spanContext.IsSampled() {
+		traceFlags = oteltrace.FlagsSampled
+	}
+	sc := oteltrace.SpanContext{
+		TraceID:    oteltrace.ID(s.spanContext.TraceID),
+		SpanID:     oteltrace.SpanID(s.spanContext.SpanID),
+		TraceFlags: traceFlags,
+	}
+	// zero out the non-remote span context so the remote one is used.
+	parent = oteltrace.ContextWithSpan(parent, nil)
+	return oteltrace.ContextWithRemoteSpanContext(parent, sc)
 }
 
 // All available span kinds. Span kind must be either one of these values.
