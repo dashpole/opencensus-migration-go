@@ -2,7 +2,7 @@
 github.com/DataDog/sketches-go/ddsketch
 # github.com/golang/groupcache v0.0.0-20190702054246-869f871628b6
 github.com/golang/groupcache/lru
-# go.opencensus.io v0.22.4
+# go.opencensus.io v0.22.4 => github.com/dashpole/opencensus-go v0.22.5-0.20201007221343-1ad8404e7077
 ## explicit
 go.opencensus.io
 go.opencensus.io/examples/exporter
@@ -65,3 +65,4 @@ go.opentelemetry.io/otel/sdk/trace
 go.opentelemetry.io/otel/sdk/trace/internal
 # google.golang.org/grpc v1.32.0
 google.golang.org/grpc/codes
+# go.opencensus.io => github.com/dashpole/opencensus-go v0.22.5-0.20201007221343-1ad8404e7077
