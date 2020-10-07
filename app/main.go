@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 
-	tracerprovider "github.com/dashpole/opencensus-migration-go/migration-tracerprovider"
+	"github.com/dashpole/opencensus-migration-go/migration"
 	oclibrary "github.com/dashpole/opencensus-migration-go/opencensus-library"
 	otellibrary "github.com/dashpole/opencensus-migration-go/opentelemetry-library"
 
@@ -50,14 +50,15 @@ func main() {
 	ctx = context.Background()
 
 	log.Println("Swapping in the opencensus migration traceprovider wrapper...")
-	global.SetTracerProvider(tracerprovider.NewTracerProvider(tp))
+	// THIS IS WHERE WE USE THE OPENCENSUS TRACEPROVIDER
+	global.SetTracerProvider(migration.NewTracerProvider())
 
 	log.Println("Emitting opencensus span.\n-- It should have no parent, since it is the first span.")
 	ctx = oclibrary.ExportExampleSpan(ctx)
 
-	log.Println("Emitting opentelemetry span.\n-- It should have the OC span as a parent, since the migrationExporter linked the span contexts.")
+	log.Println("Emitting opentelemetry span, but it uses the opencensus exporter we registered!\n-- It should have the OC span as a parent, since the migration traceprovider linked the span contexts.")
 	ctx = otellibrary.ExportExampleSpan(ctx)
 
-	log.Println("Emitting opencensus span.\n-- It should have the OTel span as a parent, since the migrationExporter linked the span contexts.")
+	log.Println("Emitting opencensus span.\n-- It should have the OTel span as a parent, since the migration traceprovider linked the span contexts.")
 	ctx = oclibrary.ExportExampleSpan(ctx)
 }

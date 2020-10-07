@@ -38,16 +38,20 @@ That is even if I send my traces to the same backend.  Instead, I would like:
 
 ### The attempted solution
 
-In order to accomplish this, we must get opentelemetry and opencensus use the same context.Context key when creating spans.  This is impossible without forking one of those libraries.
-In this experiment, we _somewhat_ accomplish this with a wrapper around opentelemetry's TraceProvider, found in the `migration-traceprovider` directory.  There are 3 steps:
+This entirely replaces the OpenTelemetry SDK by re-implementing it using OpenCensus under the hood.
 
-1. In tracer.Start(), we first get the OpenCensus SpanContext, and overwrite the OpenTelemetry SpanContext with it.
-1. Call the wrapped (i.e. "normal") tracer.Start() function.  It will use the OpenCensus span as its parent.
-1. Get the OpenTelemetry SpanContext, and overwrite the OpenCensus SpanContext with it.
+### User experience
+
+Users that are using entirely OpenCensus can begin switching libraries to OpenTelemetry without changing behavior at all by registering the migration OpenTelemetry TraceProvider:
+```golang
+global.SetTracerProvider(migration.NewTracerProvider())
+```
+
+All OpenTelemetry libraries will use this SDK, which convert spans to OpenCensus.
+
+Once they have migrated all libraries to OpenTelemetry, they remove the migration TraceProvider, and switch to using OpenTelemetry exporters.
 
 ### Shortcomings
 
-1. The OpenCensus library doesn't support setting SpanContext directly, and only exposes a StartSpanWithRemoteParent that allows specifying a SpanContext.  This means every time you create an OpenTelemetry span, you also get an OpenCensus span.  We might be able to remedy this by adding to the OpenCensus library.
-2. When converting between OpenTelemetry and OpenCensus spans, we can only keep the SpanContext, not the other pieces, such as tags, attributes, tracestate, etc.  In our example above, it means the "InnerSpan" would no longer include tags from the "OuterSpan", since those were removed when creating the "MiddleSpan"
-
-
+1. There are some small differences between the OpenTelemetry and OpenCensus libraries.  See comments in the traceprovider for details.  This means that libraries which make use of some OpenTelemetry APIs may not work as expected.  Note that this is _much less bad_ than other options being considered.
+2. Even when libraries are using OpenTelemetry, spans are still sent using OpenCensus exporters.  This isn't _neccessarily_ a downside, since users already using OpenCensus presumably had exporters working correctly.  However, it means users won't be able to make use of OpenTelemetry exporters until they have completed the migration, and removed the migration TraceProvider.
