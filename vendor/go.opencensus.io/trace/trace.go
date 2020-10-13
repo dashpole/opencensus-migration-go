@@ -115,13 +115,13 @@ type SpanContext struct {
 type contextKey struct{}
 
 // FromContext returns the Span stored in a context, or nil if there isn't one.
-func FromContext(ctx context.Context) Span {
+func (t *tracer) FromContext(ctx context.Context) Span {
 	s, _ := ctx.Value(contextKey{}).(Span)
 	return s
 }
 
 // NewContext returns a new context with the given Span attached.
-func NewContext(parent context.Context, s Span) context.Context {
+func (t *tracer) NewContext(parent context.Context, s Span) context.Context {
 	return context.WithValue(parent, contextKey{}, s)
 }
 
@@ -175,8 +175,8 @@ func WithSampler(sampler Sampler) StartOption {
 func (t *tracer) StartSpan(ctx context.Context, name string, o ...StartOption) (context.Context, Span) {
 	var opts StartOptions
 	var parent SpanContext
-	if p := FromContext(ctx); p != nil {
-		p.AddChild()
+	if p := t.FromContext(ctx); p != nil {
+		p.addChild()
 		parent = p.SpanContext()
 	}
 	for _, op := range o {
@@ -186,7 +186,7 @@ func (t *tracer) StartSpan(ctx context.Context, name string, o ...StartOption) (
 
 	ctx, end := startExecutionTracerTask(ctx, name)
 	span.executionTracerTaskEnd = end
-	return NewContext(ctx, span), span
+	return t.NewContext(ctx, span), span
 }
 
 // StartSpanWithRemoteParent starts a new child span of the span from the given parent.
@@ -204,7 +204,7 @@ func (t *tracer) StartSpanWithRemoteParent(ctx context.Context, name string, par
 	span := startSpanInternal(name, parent != SpanContext{}, parent, true, opts)
 	ctx, end := startExecutionTracerTask(ctx, name)
 	span.executionTracerTaskEnd = end
-	return NewContext(ctx, span), span
+	return t.NewContext(ctx, span), span
 }
 
 func startSpanInternal(name string, hasParent bool, parent SpanContext, remoteParent bool, o StartOptions) *span {
@@ -286,7 +286,7 @@ func (s *span) End() {
 		exp, _ := exporters.Load().(exportersMap)
 		mustExport := s.spanContext.IsSampled() && len(exp) > 0
 		if s.spanStore != nil || mustExport {
-			sd := s.SpanData()
+			sd := s.makeSpanData()
 			sd.EndTime = internal.MonotonicEndTime(sd.StartTime)
 			if s.spanStore != nil {
 				s.spanStore.finished(s, sd)
@@ -302,7 +302,7 @@ func (s *span) End() {
 
 // makeSpanData produces a SpanData representing the current state of the Span.
 // It requires that s.data is non-nil.
-func (s *span) SpanData() *SpanData {
+func (s *span) makeSpanData() *SpanData {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.data == nil {
@@ -399,7 +399,7 @@ func (s *span) copyToCappedAttributes(attributes []Attribute) {
 	}
 }
 
-func (s *span) AddChild() {
+func (s *span) addChild() {
 	if !s.IsRecordingEvents() {
 		return
 	}
