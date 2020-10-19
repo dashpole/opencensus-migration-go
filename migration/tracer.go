@@ -6,8 +6,8 @@ import (
 	"log"
 
 	octrace "go.opencensus.io/trace"
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/api/global"
+	otel "go.opentelemetry.io/otel/api/trace"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/label"
 )
@@ -197,7 +197,7 @@ func ocSpanContextToOtel(sc octrace.SpanContext) otel.SpanContext {
 		traceFlags = otel.FlagsSampled
 	}
 	return otel.SpanContext{
-		TraceID:    otel.TraceID(sc.TraceID),
+		TraceID:    otel.ID(sc.TraceID),
 		SpanID:     otel.SpanID(sc.SpanID),
 		TraceFlags: traceFlags,
 	}
