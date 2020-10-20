@@ -18,6 +18,7 @@ go.opencensus.io/stats/view
 go.opencensus.io/tag
 go.opencensus.io/trace
 go.opencensus.io/trace/internal
+go.opencensus.io/trace/propagation
 go.opencensus.io/trace/tracestate
 # go.opentelemetry.io/otel v0.13.0
 ## explicit

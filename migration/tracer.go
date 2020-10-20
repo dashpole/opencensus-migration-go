@@ -86,7 +86,7 @@ func (s *span) End() {
 }
 
 func (s *span) SpanContext() octrace.SpanContext {
-	return s.otelSpanContextToOc(s.otSpan.SpanContext())
+	return otelSpanContextToOc(s.otSpan.SpanContext())
 }
 
 func (s *span) SetName(name string) {
@@ -174,10 +174,10 @@ func (s *span) String() string {
 		s.otSpan.SpanContext().SpanID.String())
 }
 
-func (s *span) otelSpanContextToOc(sc otel.SpanContext) octrace.SpanContext {
+func otelSpanContextToOc(sc otel.SpanContext) octrace.SpanContext {
 	if sc.IsDebug() || sc.IsDeferred() {
 		// OTel don't support these options
-		log.Printf("Ignoring OpenCensus Debug or Deferred trace flags for span %q because they are not supported by OpenTelemetry.\n", s.String())
+		log.Printf("Ignoring OpenCensus Debug or Deferred trace flags for span %q because they are not supported by OpenTelemetry.\n", sc.SpanID)
 	}
 	var to octrace.TraceOptions
 	if sc.IsSampled() {
