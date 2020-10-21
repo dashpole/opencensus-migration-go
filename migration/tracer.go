@@ -74,7 +74,8 @@ func (o *otelTracer) NewContext(parent context.Context, s octrace.Span) context.
 type span struct {
 	// We can't implement the unexported functions, so add the interface here.
 	octrace.Span
-	otSpan otel.Span
+	otSpan           otel.Span
+	accumulatedLinks []otel.Link
 }
 
 func (s *span) IsRecordingEvents() bool {
@@ -82,7 +83,7 @@ func (s *span) IsRecordingEvents() bool {
 }
 
 func (s *span) End() {
-	s.otSpan.End()
+	s.otSpan.End(otel.WithLinks(s.accumulatedLinks...))
 }
 
 func (s *span) SpanContext() octrace.SpanContext {
@@ -165,8 +166,25 @@ func (s *span) AddMessageReceiveEvent(messageID, uncompressedByteSize, compresse
 }
 
 func (s *span) AddLink(l octrace.Link) {
-	// Links may only be specified at creation time
-	log.Printf("Unable to add a link for span %q, since OpenTelemetry doesn't support adding links after creation.\n", s.String())
+	otLink := otel.Link{
+		SpanContext: otel.SpanContext{
+			TraceID: otel.ID(l.TraceID),
+			SpanID:  otel.SpanID(l.SpanID),
+		},
+		Attributes: convertAttributeMap(l.Attributes),
+	}
+	s.accumulatedLinks = append(s.accumulatedLinks, otLink)
+}
+
+func convertAttributeMap(attributes map[string]interface{}) []label.KeyValue {
+	otAttributes := []label.KeyValue{}
+	for k, v := range attributes {
+		otAttributes = append(otAttributes, label.KeyValue{
+			Key:   label.Key(k),
+			Value: convertValue(v),
+		})
+	}
+	return otAttributes
 }
 
 func (s *span) String() string {
